@@ -3,13 +3,13 @@ import cv2
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
-CONFIDENCE_THRESHOLD = 0.6
+CONFIDENCE_THRESHOLD = 0.2
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
 
 model = YOLO("yolov8n.pt")
 
-model.predict(source='cap', stream = True, classes = 2)
+model.predict(source='cap', stream = True, classes = 32)
 tracker = DeepSort(max_age=50)
 
 cap = cv2.VideoCapture(0)
@@ -25,12 +25,12 @@ while True:
         print('Cannot open camera')
         break
 
-    detection = model.predict(source=[frame], save=False, classes=[2])[0]
+    detection = model.predict(source=[frame], save=False, classes=[32])[0]
     results = []
 
     for data in detection.boxes.data.tolist(): # data : [xmin, ymin, xmax, ymax, confidence_score, class_id]
         confidence = float(data[4])
-        if confidence < CONFIDENCE_THRESHOLD:
+        if confidence < CONFIDENCE_THRESHOLD or int(data[5]) != 32:  # 클래스 32에 대한 조건 추가
             continue
 
         xmin, ymin, xmax, ymax = int(data[0]), int(data[1]), int(data[2]), int(data[3])
