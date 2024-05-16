@@ -53,7 +53,8 @@ def mouse_callback(event, x, y, flags, param):
 cv.namedWindow('img_color')
 cv.setMouseCallback('img_color', mouse_callback)
 
-cap = cv.VideoCapture(0)
+cap = cv.VideoCapture(1)  # 0번 카메라를 사용하거나 비디오 파일 경로를 넣어주세요.
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -72,6 +73,9 @@ while True:
 
     # 마스크 이미지로 원본 이미지에서 범위값에 해당되는 영상 부분을 획득합니다.
     img_result = cv.bitwise_and(img_color, img_color, mask=img_mask)
+
+    # 이미지 경계에 선을 그립니다.
+    cv.line(img_result, (0, 0), (img_result.shape[1], img_result.shape[0]), (0, 255, 0), thickness=2)
 
     cv.imshow('img_color', img_color)
     cv.imshow('img_mask', img_mask)
