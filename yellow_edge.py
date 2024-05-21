@@ -1,89 +1,102 @@
-import cv2 as cv
+import cv2
 import numpy as np
 
-hsv = 0
-lower_blue1 = 0
-upper_blue1 = 0
-lower_blue2 = 0
-upper_blue2 = 0
-lower_blue3 = 0
-upper_blue3 = 0
+class ArrowDetector:
+    def __init__(self):
+        self.hsv_lower_yellow = None
+        self.hsv_upper_yellow = None
 
-def mouse_callback(event, x, y, flags, param):
-    global hsv, lower_blue1, upper_blue1, lower_blue2, upper_blue2, lower_blue3, upper_blue3
+    def select_yellow(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            color = self.img_color[y, x]
+            hsv_color = cv2.cvtColor(np.uint8([[color]]), cv2.COLOR_BGR2HSV)
+            h = hsv_color[0][0][0]
 
-    # 마우스 왼쪽 버튼 누를시 위치에 있는 픽셀값을 읽어와서 HSV로 변환합니다.
-    if event == cv.EVENT_LBUTTONDOWN:
-        print(img_color[y, x])
-        color = img_color[y, x]
+            # Define the range for yellow color in HSV
+            self.hsv_lower_yellow = np.array([h - 10, 100, 100])
+            self.hsv_upper_yellow = np.array([h + 10, 255, 255])
 
-        one_pixel = np.uint8([[color]])
-        hsv = cv.cvtColor(one_pixel, cv.COLOR_BGR2HSV)
-        hsv = hsv[0][0]
+    def preprocess(self, img):
+        hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        yellow_mask = cv2.inRange(hsv_img, self.hsv_lower_yellow, self.hsv_upper_yellow)
+        return yellow_mask
 
-        # HSV 색공간에서 마우스 클릭으로 얻은 픽셀값과 유사한 필셀값의 범위를 정합니다.
-        if hsv[0] < 10:
-            print("case1")
-            lower_blue1 = np.array([hsv[0]-10+180, 30, 30])
-            upper_blue1 = np.array([180, 255, 255])
-            lower_blue2 = np.array([0, 30, 30])
-            upper_blue2 = np.array([hsv[0], 255, 255])
-            lower_blue3 = np.array([hsv[0], 30, 30])
-            upper_blue3 = np.array([hsv[0]+10, 255, 255])
+    def find_tip(self, points, convex_hull):
+        length = len(points)
+        indices = np.setdiff1d(range(length), convex_hull)
 
-        elif hsv[0] > 170:
-            print("case2")
-            lower_blue1 = np.array([hsv[0], 30, 30])
-            upper_blue1 = np.array([180, 255, 255])
-            lower_blue2 = np.array([0, 30, 30])
-            upper_blue2 = np.array([hsv[0]+10-180, 255, 255])
-            lower_blue3 = np.array([hsv[0]-10, 30, 30])
-            upper_blue3 = np.array([hsv[0], 255, 255])
+        for i in range(2):
+            j = indices[i] + 2
+            if j > length - 1:
+                j = length - j
+            if np.all(points[j] == points[indices[i - 1] - 2]):
+                return tuple(points[j])
 
-        else:
-            print("case3")
-            lower_blue1 = np.array([hsv[0], 30, 30])
-            upper_blue1 = np.array([hsv[0]+10, 255, 255])
-            lower_blue2 = np.array([hsv[0]-10, 30, 30])
-            upper_blue2 = np.array([hsv[0], 255, 255])
-            lower_blue3 = np.array([hsv[0]-10, 30, 30])
-            upper_blue3 = np.array([hsv[0], 255, 255])
+    def is_arrow(self, img):
+        yellow_mask = self.preprocess(img)
+        contours, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
+        for cnt in contours:
+            peri = cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, 0.025 * peri, True)
+            hull = cv2.convexHull(approx, returnPoints=False)
+            sides = len(hull)
 
-cv.namedWindow('img_color')
-cv.setMouseCallback('img_color', mouse_callback)
+            if 15 > sides > 3 and sides + 2 == len(approx):
+                arrow_tip = self.find_tip(approx[:, 0, :], hull.squeeze())
+                if arrow_tip:
+                    # Draw triangle
+                    cv2.drawContours(img, [approx], -1, (0, 255, 0), 3)
 
-cap = cv.VideoCapture(1)  # 0번 카메라를 사용하거나 비디오 파일 경로를 넣어주세요.
+                    # Draw red dots at triangle vertices
+                    for point in approx:
+                        cv2.circle(img, tuple(point[0]), 3, (0, 0, 255), cv2.FILLED)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+                    return True, arrow_tip
 
-    img_color = cv.resize(frame, (640, 480))
+        return False, [False, False]
 
-    # 원본 영상을 HSV 영상으로 변환합니다.
-    img_hsv = cv.cvtColor(img_color, cv.COLOR_BGR2HSV)
+    def detect_arrow(self):
+        cap = cv2.VideoCapture(1)
+        cv2.namedWindow('Select Yellow')
+        cv2.setMouseCallback('Select Yellow', self.select_yellow)
 
-    # 범위 값으로 HSV 이미지에서 마스크를 생성합니다.
-    img_mask1 = cv.inRange(img_hsv, lower_blue1, upper_blue1)
-    img_mask2 = cv.inRange(img_hsv, lower_blue2, upper_blue2)
-    img_mask3 = cv.inRange(img_hsv, lower_blue3, upper_blue3)
-    img_mask = img_mask1 | img_mask2 | img_mask3
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Cannot open camera")
+                break
 
-    # 마스크 이미지로 원본 이미지에서 범위값에 해당되는 영상 부분을 획득합니다.
-    img_result = cv.bitwise_and(img_color, img_color, mask=img_mask)
+            self.img_color = cv2.resize(frame, (640, 480))
 
-    # 이미지 경계에 선을 그립니다.
-    cv.line(img_result, (0, 0), (img_result.shape[1], img_result.shape[0]), (0, 255, 0), thickness=2)
+            cv2.imshow('Select Yellow', self.img_color)
 
-    cv.imshow('img_color', img_color)
-    cv.imshow('img_mask', img_mask)
-    cv.imshow('img_result', img_result)
+            if cv2.waitKey(1) & 0xFF == 27:
+                if self.hsv_lower_yellow is not None and self.hsv_upper_yellow is not None:
+                    break
 
-    # ESC 키를 누르면 종료합니다.
-    if cv.waitKey(1) & 0xFF == 27:
-        break
+        cv2.destroyAllWindows()
 
-cap.release()
-cv.destroyAllWindows()
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Cannot open camera")
+                break
+
+            arrow_detected, arrow_tip = self.is_arrow(frame)
+
+            if arrow_detected:
+                # Draw a red dot at the arrow tip
+                cv2.circle(frame, arrow_tip, 3, (0, 0, 255), cv2.FILLED)
+                cv2.imshow('Arrow Detection', frame)
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+
+# Usage
+if __name__ == "__main__":
+    detector = ArrowDetector()
+    detector.detect_arrow()
