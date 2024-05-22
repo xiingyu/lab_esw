@@ -41,7 +41,7 @@ def mouse_callback(event, x, y, flags, param):
             upper_blue3 = np.array([hsv[0], 255, 255])
 
         else:
-            print("case3")
+            print("case3") # 10 <= hsv[0] <= 170
             lower_blue1 = np.array([hsv[0], 30, 30])
             upper_blue1 = np.array([hsv[0]+10, 255, 255])
             lower_blue2 = np.array([hsv[0]-10, 30, 30])
@@ -53,7 +53,7 @@ def mouse_callback(event, x, y, flags, param):
 cv.namedWindow('img_color')
 cv.setMouseCallback('img_color', mouse_callback)
 
-cap = cv.VideoCapture(0)
+cap = cv.VideoCapture(1)
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -72,6 +72,11 @@ while True:
 
     # 마스크 이미지로 원본 이미지에서 범위값에 해당되는 영상 부분을 획득합니다.
     img_result = cv.bitwise_and(img_color, img_color, mask=img_mask)
+
+    # img_result의 HSV 값을 출력합니다.
+    img_result_hsv = cv.cvtColor(img_result, cv.COLOR_BGR2HSV)
+    print("HSV Values of img_result:")
+    print(img_result_hsv)
 
     cv.imshow('img_color', img_color)
     cv.imshow('img_mask', img_mask)

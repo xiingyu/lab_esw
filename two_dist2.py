@@ -14,9 +14,30 @@ class DistanceCalculator:
         self.yellow_lower = np.array([20, 140, 100], np.uint8)
         self.yellow_upper = np.array([30, 255, 255], np.uint8)
 
+        '''
+        [  0 240 255]
+        case3
+        [  0 218 246]
+        case3
+        [  9 232 255]
+        '''
         # 빨간색 HSV 범위
-        self.red_lower = np.array([0, 120, 70], np.uint8)
-        self.red_upper = np.array([10, 255, 255], np.uint8)
+        self.red_lower = np.array([170, 140, 150], np.uint8)
+        self.red_upper = np.array([180, 255, 255], np.uint8)
+
+        '''
+        [100  47 245]
+        case2
+        [ 97  45 235]
+        case2 hsv[0] > 170:
+        lower = 100 | (100+10-180) | 100-10
+            lower_blue1 = np.array([hsv[0], 30, 30])
+            upper_blue1 = np.array([180, 255, 255])
+            lower_blue2 = np.array([0, 30, 30])
+            upper_blue2 = np.array([hsv[0]+10-180, 255, 255])
+            lower_blue3 = np.array([hsv[0]-10, 30, 30])
+            upper_blue3 = np.array([hsv[0], 255, 255])
+        '''
 
         self.cap = cv2.VideoCapture(1)
 
