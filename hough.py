@@ -94,7 +94,7 @@ def detect_yellow_arrow(frame):
     return frame, direction
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(4)  # 웹캠에서 입력 받음
+    cap = cv2.VideoCapture(4)  
 
     if not cap.isOpened():
         print("Error: 웹캠을 열 수 없습니다.")
