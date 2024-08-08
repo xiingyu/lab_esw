@@ -1,10 +1,12 @@
+## 빨간 공 탐지 && 빨간 공까지의 거리 계산 update :: 240808
+
 import cv2
 import numpy as np
 
 # 모든 길이 단위는 m 기준
-actual_diameter_meters = 0.05  # 공의 직경
+actual_diameter_meters = 0.04267  # 공의 직경(골프공은 원래 42.67mm(0.04267m)의 직경임) # 0.05m에서 수정함
 actual_area_meters = np.pi * (actual_diameter_meters / 2) ** 2  # 공의 면적(직경으로 계산한 값)
-focal_length = 403  # 초점 거리 값 # 캘리 매트릭스에서 ((fx+fy)/2)로 평균한 결과 # 509.0532269132008(새거)403.01356509306765(구)
+focal_length = 403  # 초점 거리 값 # 캘리 매트릭스에서 ((fx+fy)/2)로 평균한 결과 # 509.0532269132008(새거) 403.01356509306765(구)
 neck_angle = 60  # 임시 목 각도 (degree)
 
 # 빨간 공 탐지 및 거리 추정 함수
