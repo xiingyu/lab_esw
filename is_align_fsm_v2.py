@@ -42,7 +42,7 @@ class Alignment_FSM_1000:
         
     # [영상처리] 9분할 화면 중 가운데에 있는지 확인 및 픽셀 거리 측정
     def check_center(self, frame):
-        frame, _, _, _, _, case_number = self.detector.detect_and_calculate_distance(frame)
+        frame, _, _, _, _, case_number = self.detector.detect_and_calculate_distance(frame) # is not self.detector.determine_case_number
         if case_number == 5:  # 가운데에 위치한 경우
             print("공이 가운데에 있습니다.")
             #self.state = STATE_CALCULATE_DIST
@@ -51,6 +51,12 @@ class Alignment_FSM_1000:
             print(f"공이 {case_number}번 섹션에 있습니다. 방향 조정 필요.")
             # 여기서 필요한 방향 조정 로직을 구현해야 함
             self.state = STATE_CHECK_5TH_SECTION
+        return frame
+    
+    # 여기에 이제 픽셀 거리 추정하는 것 넣을까 했는데, self.detector.detect_and_calculate_distance을 애초에 나누는 게 나을 것 같다
+    def pixel_dist(self, frame): # return frame, distance, center, pixel_area, walk_dist, case_number
+        frame, _, _, _, _, case_number = self.detector.detect_and_calculate_distance(frame)
+
         return frame
 
     
@@ -62,7 +68,7 @@ class Alignment_FSM_1000:
             self.state = STATE_IS_HOLE
         else:
             print("공이 8번째 섹션에 없습니다. 다시 확인합니다.")
-            self.state = STATE_CHECK_8TH_SECTION
+            self.state = STATE_CHECK_8TH_SECTION # 이 부분은 STATE_CHECK_5TH_SECTION으로 돌아가서 공을 다시 찾는 것이 더 자연스러울 것 같긴함
         return frame
     def find_hole(self, frame):
         print("일단 홀찾기 스테이트로 넘어왔는지 확인")

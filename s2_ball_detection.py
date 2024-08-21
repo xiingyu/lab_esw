@@ -94,6 +94,7 @@ class RedBallDetector:
         while True:
             ret, frame = self.cap.read()
             if not ret:
+                print("Failed to capture frame")
                 break
 
             frame, distance, center, pixel_area, walk_dist, case_number = self.detect_and_calculate_distance(frame)

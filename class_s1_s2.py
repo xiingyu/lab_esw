@@ -2,9 +2,9 @@ import cv2
 from s1_blue_position import DirectionDetector
 from s2_ball_detection import RedBallDetector
 
-class CombinedDetector:
+class CombinedDetector: # 처음에만 얘를 불러오고, 그 다음부터 s2만 불러오기,,로 다음(다음 타부터?) 인스턴스 코드 짤 것
     def __init__(self, camera_index=1):
-        self.camera = cv2.VideoCapture(camera_index)
+        self.camera = cv2.VideoCapture(camera_index) 
         if not self.camera.isOpened():
             raise ValueError(f"Camera at index {camera_index} could not be opened.")
         self.direction_detector = DirectionDetector(self.camera)

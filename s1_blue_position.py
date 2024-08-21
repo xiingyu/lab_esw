@@ -1,9 +1,12 @@
+## 파란색 배열의 경우의 수 파악 
+## update :: 24.08.08
+
 import cv2
 import numpy as np
 
-class DirectionDetector:
+class DirectionDetector: # 파랑 빨강 원형 배열에 따른 방향 결정
     def __init__(self, camera):
-        self.camera = camera
+        self.camera = camera # 카메라 객체를 외부에서 주입 > 리소스 절약된다고,,함,,, 그러면은 전처리에 대한 것 먼저 해서 그걸 다른 코드에 주입,,? 해야하는 것 같다
         self.blue_lower = np.array([100, 150, 50])  # 파란색 하한값
         self.blue_upper = np.array([140, 255, 255])  # 파란색 상한값
         self.red_lower = np.array([170, 140, 150])  # 빨간색 하한값

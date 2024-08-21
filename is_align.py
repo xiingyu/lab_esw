@@ -68,7 +68,7 @@ def decide_action_based_on_alignment(situation, distance, red_center, yellow_cen
     else:
         return "Search for Yellow Hole", frame
 
-cap = cv2.VideoCapture('./alignment_case3.mov')
+cap = cv2.VideoCapture('./re_alignment_case1.MP4')
 
 while True:
     ret, frame = cap.read()
@@ -79,8 +79,8 @@ while True:
 
     # 노란색 홀 탐지
     hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower_yellow = np.array([20, 100, 100])
-    upper_yellow = np.array([30, 255, 255])
+    lower_yellow = np.array([10, 100, 100])
+    upper_yellow = np.array([50, 255, 255])
     yellow_mask = cv2.inRange(hsv_frame, lower_yellow, upper_yellow)
     yellow_contours, _ = cv2.findContours(yellow_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -114,7 +114,7 @@ while True:
 
     cv2.imshow("Frame", frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(33) & 0xFF == ord('q'):
         break
 
 cap.release()

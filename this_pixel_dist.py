@@ -56,7 +56,7 @@ def detect_and_calculate_distance(frame):
             case_number = 9
 
         # 최소한의 원 그리기
-        ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+        ((x, y), radius) = cv2.minEnclosingCircle(largest_contour) # 가장 큰 외곽선을 포함하는 최소 외접원
         center = (int(cX), int(cY))
         radius = int(radius)
         cv2.circle(frame, center, radius, (0, 255, 0), 2)

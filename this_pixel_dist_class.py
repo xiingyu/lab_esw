@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class RedBallDetector:
-    def __init__(self, actual_diameter_meters=0.04267, focal_length=403, neck_angle=60):
+    def __init__(self, actual_diameter_meters=0.04267, focal_length=0.0403, neck_angle=60):
         self.actual_diameter_meters = actual_diameter_meters
         self.actual_area_meters = np.pi * (self.actual_diameter_meters / 2) ** 2
         self.focal_length = focal_length
@@ -11,7 +11,7 @@ class RedBallDetector:
         
     def detect_and_calculate_distance(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        lower_red = np.array([170, 100, 150])
+        lower_red = np.array([170, 150, 230])
         upper_red = np.array([180, 255, 255])
         mask = cv2.inRange(hsv, lower_red, upper_red)
 
@@ -86,30 +86,8 @@ class RedBallDetector:
         angle = np.arctan2(center[1] - bottom_center[1], center[0] - bottom_center[0])
         return np.degrees(angle)
 
-def main():
-    cap = cv2.VideoCapture(1)
-
-    detector = RedBallDetector()
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        frame, distance, center, pixel_area, walk_dist, case_number = detector.detect_and_calculate_distance(frame)
-        if distance:
-            cv2.putText(frame, f"Distance: {distance:.2f} m", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f"Area: {pixel_area:.2f} pixels^2", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f"Walk Dist: {walk_dist:.2f} m", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f"Case: {case_number}", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-        cv2.imshow("Frame", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    main()
+    def calculate_pixel_distance(self, center):
+        # 화면 중심과 공의 중심 사이의 픽셀 거리 계산
+        frame_center = (640 // 2, 480 // 2)  # 화면의 가로와 세로 중심 좌표
+        pixel_distance = np.sqrt((center[0] - frame_center[0])**2 + (center[1] - frame_center[1])**2)
+        return pixel_distance
