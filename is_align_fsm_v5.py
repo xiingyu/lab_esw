@@ -1,3 +1,9 @@
+## update :: 24.08.22
+## Resolution: 928(h)x724(w) <<- frame.shape로 구한 것임 얘를 사용해서 구한 초점 거리 값이 765.6
+## 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
+## 라즈베리파이 카메라 v2.1( Sony IMX219 )의 물리적 초점 거리는 약 3.04mm, 센서의 크기는 3.68mm x 2.76mm
+
+
 import cv2
 import numpy as np
 
@@ -8,7 +14,7 @@ class ObjectDetector:
         self.lower_yellow = lower_yellow
         self.upper_yellow = upper_yellow
         self.state = "FIND_CIRCLES"
-        self.tolerance = tolerance  # y 좌표 차이 허용 오차 (픽셀 단위)
+        self.tolerance = tolerance  # x 좌표 차이 허용 오차 (픽셀 단위)
         self.focal_length = focal_length  # 카메라의 초점 거리 (픽셀 단위)
         self.center_tolerance = center_tolerance  # 중앙 하단 부분 확인을 위한 허용 오차
     
@@ -55,13 +61,12 @@ class ObjectDetector:
             yellow_center = yellow_circle[0]
             
             # x 좌표를 기준으로 두 원이 정렬되었는지 확인
-            sorted_dots = sorted([red_center, yellow_center], key=lambda x: x[0])
-            y_diff = abs(sorted_dots[1][1] - sorted_dots[0][1])
+            x_diff = abs(red_center[0] - yellow_center[0])
             
-            if y_diff < self.tolerance:  # y 좌표의 차이가 허용 오차 이하이면 동일 선상에 있다고 간주
-                return True, "center-yesssssssss"
+            if x_diff < self.tolerance:  # x 좌표의 차이가 허용 오차 이하이면 정렬되었다고 간주
+                return True, "Aligned"
             else:
-                return False, "no alignment"
+                return False, "Not aligned"
         return False, ""
     
     def calculate_distance(self, radius_red):
@@ -104,6 +109,9 @@ class ObjectDetector:
             center_yellow = yellow_circle[0]
             # 노란색 공의 중심에서 회색 선까지 수평 핑크색 선 그리기
             cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, center_yellow[1]), (255, 105, 180), 2)
+
+            # 노란색 공의 중심에서 회색 선의 가장 끝지점까지 선 그리기
+            cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, height), (255, 255, 0), 2)
             
             # 핑크색 선의 길이 계산
             pink_line_length = abs(center_x - center_yellow[0])
@@ -116,13 +124,13 @@ class ObjectDetector:
             bottom_center = np.array([center_x, height])  # 회색선의 가장 아래점
             yellow_center = np.array([center_yellow[0], center_yellow[1]])  # 노란 원의 중심
 
-            dx = bottom_center[0] - yellow_center[0]
-            dy = bottom_center[1] - yellow_center[1]
+            dx = yellow_center[0] - bottom_center[0]  # x 좌표 차이 (중심 기준)
+            dy = bottom_center[1] - yellow_center[1]  # y 좌표 차이 (중심 기준)
 
             angle = np.degrees(np.arctan2(dy, dx))
 
-            # 회색 가상선이 0도이므로, 수평 오른쪽(양수), 수평 왼쪽(음수)로 각도를 표시
-            angle_from_vertical = 90 - angle if angle >= 0 else - (90 + angle)
+            # 회색 가상선이 0도이므로, 오른쪽 양수, 왼쪽 음수로 각도를 표시
+            angle_from_vertical = angle
             
             # 각도를 화면에 표시
             cv2.putText(frame, f"Angle: {angle_from_vertical:.2f} degrees", (center_yellow[0] + 10, center_yellow[1] + 30), 
@@ -201,12 +209,15 @@ detector = ObjectDetector(
     
     lower_yellow=np.array([10, 70, 70]),
     upper_yellow=np.array([25, 255, 255]),
-    tolerance=157,  # y 좌표 차이 허용 오차
-    focal_length=500,  # 초점 거리
+    tolerance=30,  # x 좌표 차이 허용 오차
+    focal_length=765.6,  # 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
+
     center_tolerance=50  # 중앙 하단 확인을 위한 허용 오차
 )
 
+#cap = cv2.VideoCapture('./alignment_case1.mov')
 cap = cv2.VideoCapture('./re_alignment_case1.mp4')
+#cap = cv2.VideoCapture('./dist_test.mp4')
 
 while cap.isOpened():
     ret, frame = cap.read()
