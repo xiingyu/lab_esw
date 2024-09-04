@@ -1,3 +1,7 @@
+## update :: 24.09.04
+## 테스트 했던 각도(목 각도 여러개 함)_distance(mm) :: 500 // 700 // 900 //1080
+## distance로 구하고자 했던 walk_dist(자로 쟀을 땐) :: 350 // 600 // 800 // 1000 
+
 import cv2
 import numpy as np
 
@@ -55,7 +59,7 @@ class ObjectDetector:
     
     def calculate_walk_distance(self, distance):
         # walk_dist^2 = distance^2 - (0.333m)^2
-        height_offset = 0.38
+        height_offset = 0.33
         if distance > height_offset:
             walk_dist = np.sqrt(distance**2 - height_offset**2)
         else:

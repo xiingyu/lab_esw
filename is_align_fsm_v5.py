@@ -1,4 +1,4 @@
-## update :: 24.08.22
+## update :: 24.09.05
 ## Resolution: 928(h)x724(w) <<- frame.shape로 구한 것임 얘를 사용해서 구한 초점 거리 값이 765.6
 ## 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
 ## 라즈베리파이 카메라 v2.1( Sony IMX219 )의 물리적 초점 거리는 약 3.04mm, 센서의 크기는 3.68mm x 2.76mm
@@ -111,38 +111,19 @@ class ObjectDetector:
             cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, center_yellow[1]), (255, 105, 180), 2)
 
             # 노란색 공의 중심에서 회색 선의 가장 끝지점까지 선 그리기
-            meet_point = np.array([center_x, center_yellow[1]])
-            cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, center_yellow[1]), (255, 255, 0), 2)
+            cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, height), (255, 255, 0), 2)
             
-            # 핑크색 선의 길이 계산
-            pink_line_length = abs(center_x - center_yellow[0])
-            
-            # 핑크색 선의 길이를 화면에 표시
-            cv2.putText(frame, f"Length: {pink_line_length} px", (center_yellow[0] + 10, center_yellow[1] - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 105, 180), 2)
-            
-            # 각도 계산 (회색 가상선과 노란 원의 중심에서 회색 가상선 아래점을 잇는 선)
-            #bottom_center = np.array([center_x, height])  # 회색선의 가장 아래점
-            #yellow_center = np.array([center_yellow[0], center_yellow[1]])  # 노란 원의 중심
+            # 각도 계산 (노란 원 중심과 회색 가상선이 만나는 지점까지의 빨간색 각도)
+            dy = center_yellow[1] - height  # y 좌표 차이
+            dx = center_yellow[0] - center_x  # x 좌표 차이
 
-            #dx = yellow_center[0] - center_x
-            #dy = yellow_center[1] - height
+            angle = 180 - np.degrees(np.arctan2(dx, dy))  # 각도를 degree로 변환
 
-            #angle = np.degrees(np.arctan2(dy, dx))
-            #angle = np.degrees(np.arctan2(center_x, center_yellow[0]))
-            #angle = np.degreess(np.arccos(center_y))
-            angle = np.degrees(np.arctan2((center_yellow[1]-height)/(center_x-center_x))-np.arctan2((center_x-center_x)/(center_yellow[0]-center_x)))
-
-
-            #cos_theta = dot_product / ()
-            #angle = math.acos(cos_theta)
-
-            # 회색 가상선이 0도이므로, 오른쪽 양수, 왼쪽 음수로 각도를 표시
-            angle_from_vertical = angle
-            
             # 각도를 화면에 표시
-            cv2.putText(frame, f"Angle: {angle_from_vertical:.2f} degrees", (center_yellow[0] + 10, center_yellow[1] + 30), 
+            cv2.putText(frame, f"Angle: {angle:.2f} degrees", (center_yellow[0] + 10, center_yellow[1] + 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 105, 180), 2)
+
+
     
     def process_frame(self, frame):
         result = frame.copy()
