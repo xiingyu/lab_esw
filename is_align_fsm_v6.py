@@ -1,8 +1,9 @@
-## update :: 24.09.25
+## update :: 24.09.26
 ## Resolution: 928(h)x724(w) <<- frame.shape로 구한 것임 얘를 사용해서 구한 초점 거리 값이 765.6
 ## 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
 ## 라즈베리파이 카메라 v2.1( Sony IMX219 )의 물리적 초점 거리는 약 3.04mm, 센서의 크기는 3.68mm x 2.76mm
-## 19일 이후 모션 제어 추가하려면 :: self.move.send_data(28)으로 번호만 수정하면 Motion.py(준렬코드)에 숫자 입력으로 들어감 (아직 모션에 대한 fsm 구분을 안함)
+## 19일 이후 모션 제어 추가하려면 :: self.serial_comm.send_data(28)으로 번호만 수정하면 Motion.py(준렬코드)에 숫자 입력으로 들어감 (아직 모션에 대한 fsm 구분을 안함)
+## 26일부터 v6로 파일 변경! >> FIND_CIRCLES > CHECK_ALIGNMENT 이 다음에 빨간색 공까지의 거리를 추정할 것임(RED_DIST)
 
 
 from Motion import SerialCommunication
@@ -18,7 +19,7 @@ class ObjectDetector:
         self.lower_yellow = lower_yellow
         self.upper_yellow = upper_yellow
 
-        self.state = "FIND_CIRCLES"
+        self.state = "FIND_CIRCLES" # 초기 state 지정한 것!!
         
         self.tolerance = tolerance  # x 좌표 차이 허용 오차 (픽셀 단위)
         self.focal_length = focal_length  # 카메라의 초점 거리 (픽셀 단위)
@@ -74,7 +75,7 @@ class ObjectDetector:
             
             if x_diff < self.tolerance:  # x 좌표의 차이가 허용 오차 이하이면 정렬되었다고 간주
                 print("정렬됨을 확인함. go_3stet으로 이동")
-                self.state = "GO_3STEP" # GO_3STEP 상태로 이동하면 모션만 있음
+                self.state = "RED_DIST" # RED_DIST는 빨간공까지의 거리만 추정하는 것
                 return True, "Align!!!!!!!!!!!!!!!!!!!!"
             else:
                 print("틀어짐을 확인함. try_alignment로 이동")
@@ -82,6 +83,32 @@ class ObjectDetector:
                 return False, "Not aligned..."
         return False, ""
     
+    def calculate_distance(self, radius_red):
+        # 공의 실제 직경(미터)
+        actual_diameter_meters = 0.05
+        actual_area_meters = np.pi * (actual_diameter_meters / 2) ** 2  # 공의 실제 면적
+        
+        # 픽셀 면적 계산
+        pixel_area = np.pi * (radius_red ** 2)
+        
+        # 거리를 계산하여 반환 (거리 = 초점 거리 * √(실제 면적 / 픽셀 면적))
+        if pixel_area > 0:
+            distance = self.focal_length * np.sqrt(actual_area_meters / pixel_area)
+            return distance
+        else:
+            return None
+        
+    def calculate_walk_distance(self, distance):
+        # walk_dist^2 = distance^2 - (0.333m)^2
+        height_offset = 0.33
+        if distance > height_offset:
+            walk_dist = np.sqrt(distance**2 - height_offset**2)
+        else:
+            walk_dist = 0  # 거리 계산이 불가능한 경우 0으로 반환
+        
+        #print(f"[DEBUG] Calculated Walk Distance: {walk_dist:.2f} meters")
+        return walk_dist
+
     def go_3step(self):
         self.serial_comm.send_data(28)
         time.sleep(1)
@@ -103,21 +130,6 @@ class ObjectDetector:
         self.state = "WAIT"  # 일시적으로 대기 상태로 전환
 
         return None
-
-    def calculate_distance(self, radius_red):
-        # 공의 실제 직경(미터)
-        actual_diameter_meters = 0.04267  
-        actual_area_meters = np.pi * (actual_diameter_meters / 2) ** 2  # 공의 실제 면적
-        
-        # 픽셀 면적 계산
-        pixel_area = np.pi * (radius_red ** 2)
-        
-        # 거리를 계산하여 반환 (거리 = 초점 거리 * √(실제 면적 / 픽셀 면적))
-        if pixel_area > 0:
-            distance = self.focal_length * np.sqrt(actual_area_meters / pixel_area)
-            return distance
-        else:
-            return None
     
     def is_red_circle_centered_bottom(self, red_circle, frame_shape):
         center_red = red_circle[0]
@@ -183,6 +195,31 @@ class ObjectDetector:
 
             return result
         
+        elif self.state == "RED_DIST":
+            result, red_circle = self.find_circles(frame)
+            # 정렬 여부와 관계없이 거리 계산
+            if red_circle:
+                distance = self.calculate_distance(red_circle[1])
+                if distance is not None:
+                    # walk_dist 계산
+                    walk_dist = self.calculate_walk_distance(distance)
+                    
+                    # 거리를 화면에 표시
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 1
+                    color = (255, 0, 0)
+                    thickness = 3
+                    distance_text = f"Distance: {distance:.2f} meters"
+                    cv2.putText(result, distance_text, (10, 50), font, font_scale, color, thickness)
+                    
+                    # walk_dist 표시
+                    walk_dist_text = f"Walk Distance: {walk_dist:.2f} meters"
+                    cv2.putText(result, walk_dist_text, (10, 100), font, font_scale, color, thickness)
+
+                    self.state = "GO_3STEP"
+            
+            return result
+        
         elif self.state == "GO_3STEP":
             self.go_3step()
             return result
@@ -194,7 +231,7 @@ class ObjectDetector:
         elif self.state == "WAIT":
             # last_movement_time이 None이 아니어야 시간을 비교할 수 있음
             if self.last_movement_time is not None and time.time() - self.last_movement_time > 2:
-                self.state = "CHECK_ALIGNMENT"
+                self.state = "FIND_CIRCLES"
             return result
         
         elif self.state == "CHECK_RED_POSITION":
