@@ -1,11 +1,15 @@
-## update :: 24.09.05
+## update :: 24.09.25
 ## Resolution: 928(h)x724(w) <<- frame.shape로 구한 것임 얘를 사용해서 구한 초점 거리 값이 765.6
 ## 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
 ## 라즈베리파이 카메라 v2.1( Sony IMX219 )의 물리적 초점 거리는 약 3.04mm, 센서의 크기는 3.68mm x 2.76mm
+## 19일 이후 모션 제어 추가하려면 :: self.move.send_data(28)으로 번호만 수정하면 Motion.py(준렬코드)에 숫자 입력으로 들어감 (아직 모션에 대한 fsm 구분을 안함)
 
+
+from Motion import SerialCommunication
 
 import cv2
 import numpy as np
+import time
 
 class ObjectDetector:
     def __init__(self, lower_red, upper_red, lower_yellow, upper_yellow, tolerance=20, focal_length=500, center_tolerance=50):
@@ -13,11 +17,20 @@ class ObjectDetector:
         self.upper_red = upper_red
         self.lower_yellow = lower_yellow
         self.upper_yellow = upper_yellow
+
         self.state = "FIND_CIRCLES"
+        self.state = "CHECK_ALIGNMENT"
+        self.state = "GO_3STEP"
+        self.state = "TRY_ALIGNMENT"
+        self.state = "WAIT"
+        
         self.tolerance = tolerance  # x 좌표 차이 허용 오차 (픽셀 단위)
         self.focal_length = focal_length  # 카메라의 초점 거리 (픽셀 단위)
         self.center_tolerance = center_tolerance  # 중앙 하단 부분 확인을 위한 허용 오차
+        self.serial_comm = SerialCommunication() # 준렬 코드를 클래스로 변경하고 이걸 추가함
+        self.last_movement_time = None  # 마지막으로 모션이 수행된 시간을 저장
     
+    '''수정할 것 :: 공이 없으면 어떻게 할 지?'''
     def find_circles(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         
@@ -64,11 +77,37 @@ class ObjectDetector:
             x_diff = abs(red_center[0] - yellow_center[0])
             
             if x_diff < self.tolerance:  # x 좌표의 차이가 허용 오차 이하이면 정렬되었다고 간주
+                print("정렬됨을 확인함. go_3stet으로 이동")
+                self.state = "GO_3STEP" # GO_3STEP 상태로 이동하면 모션만 있음
                 return True, "Align!!!!!!!!!!!!!!!!!!!!"
             else:
+                print("틀어짐을 확인함. try_alignment로 이동")
+                self.state = "TRY_ALIGNMENT" # TRY_ALIGNMENT 상태로 이동하면 모션만 있음
                 return False, "Not aligned..."
         return False, ""
     
+    def go_3step(self):
+        self.serial_comm.send_data(28)
+        time.sleep(1)
+        self.serial_comm.send_data(30)
+        time.sleep(1)
+        self.serial_comm.send_data(21)
+        self.last_movement_time = time.time()  # 모션이 끝났음을 알리기 위해 시간을 기록
+        self.state = "WAIT"  # 일시적으로 대기 상태로 전환
+
+        return None
+    
+    def try_alignment(self): # 여기에서 정렬을 맞추려는 동작 몇개 하다가 다시 정렬확인스테이트로 넘기기
+        self.serial_comm.send_data(15)
+        time.sleep(1)
+        self.serial_comm.send_data(20)
+        time.sleep(1)
+        self.serial_comm.send_data(15)
+        self.last_movement_time = time.time()  # 모션이 끝났음을 알리기 위해 시간을 기록
+        self.state = "WAIT"  # 일시적으로 대기 상태로 전환
+
+        return None
+
     def calculate_distance(self, radius_red):
         # 공의 실제 직경(미터)
         actual_diameter_meters = 0.04267  
@@ -123,8 +162,6 @@ class ObjectDetector:
             cv2.putText(frame, f"Angle: {angle:.2f} degrees", (center_yellow[0] + 10, center_yellow[1] + 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 105, 180), 2)
 
-
-    
     def process_frame(self, frame):
         result = frame.copy()
         if self.state == "FIND_CIRCLES":
@@ -147,19 +184,21 @@ class ObjectDetector:
             text_x = int((width - text_size[0]) / 2)
             text_y = int((height + text_size[1]) / 2)
             cv2.putText(result, message, (text_x, text_y), font, font_scale, color, thickness)
-            
-            if aligned and red_circle:
-                distance = self.calculate_distance(red_circle[1])
-                if distance:
-                    distance_text = f"Distance: {distance:.2f} meters"
-                    cv2.putText(result, distance_text, (text_x, text_y + 40), font, font_scale, color, thickness)
-                
-            # 임시로 다음 단계로 넘어가기 위한 대기
-            key = cv2.waitKey(33)
-            if key == ord('t'):
-                self.state = "CHECK_RED_POSITION"  # t를 누르면 다음 단계로 전환
-                print("다음 단계로 넘어갑니다.")
-            
+
+            return result
+        
+        elif self.state == "GO_3STEP":
+            self.go_3step()
+            return result
+        
+        elif self.state == "TRY_ALIGNMENT":
+            self.try_alignment()
+            return result
+
+        elif self.state == "WAIT":
+            # last_movement_time이 None이 아니어야 시간을 비교할 수 있음
+            if self.last_movement_time is not None and time.time() - self.last_movement_time > 2:
+                self.state = "CHECK_ALIGNMENT"
             return result
         
         elif self.state == "CHECK_RED_POSITION":
