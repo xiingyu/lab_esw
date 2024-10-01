@@ -1,13 +1,4 @@
-## update :: 24.09.26
-## Resolution: 928(h)x724(w) <<- frame.shape로 구한 것임 얘를 사용해서 구한 초점 거리 값이 765.6
-## 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
-## 라즈베리파이 카메라 v2.1( Sony IMX219 )의 물리적 초점 거리는 약 3.04mm, 센서의 크기는 3.68mm x 2.76mm
-## 19일 이후 모션 제어 추가하려면 :: self.serial_comm.send_data(28)으로 번호만 수정하면 Motion.py(준렬코드)에 숫자 입력으로 들어감 (아직 모션에 대한 fsm 구분을 안함)
-## 26일부터 v6로 파일 변경! >> FIND_CIRCLES > CHECK_ALIGNMENT 이 다음에 빨간색 공까지의 거리를 추정할 것임(RED_DIST)
-
-
 from Motion import SerialCommunication
-
 import cv2
 import numpy as np
 import time
@@ -81,6 +72,11 @@ class ObjectDetector:
                 print("틀어짐을 확인함. try_alignment로 이동")
                 self.state = "TRY_ALIGNMENT" # TRY_ALIGNMENT 상태로 이동하면 모션만 있음
                 return False, "Not aligned..."
+        elif red_circle:
+            # 노란 공이 없을 때 빨간 공만 기준으로 동작을 처리
+            print("노란 공이 없으나, 빨간 공 기준으로 정렬 처리.")
+            self.state = "RED_DIST"
+            return True, "Align (red only)!"
         return False, ""
     
     def calculate_distance(self, radius_red):
@@ -123,7 +119,7 @@ class ObjectDetector:
     def try_alignment(self): # 여기에서 정렬을 맞추려는 동작 몇개 하다가 다시 정렬확인스테이트로 넘기기
         self.serial_comm.send_data(15)
         time.sleep(1)
-        self.serial_comm.send_data(20)
+        self.serial_comm.send_data(18)
         time.sleep(1)
         self.serial_comm.send_data(15)
         self.last_movement_time = time.time()  # 모션이 끝났음을 알리기 위해 시간을 기록
@@ -141,50 +137,11 @@ class ObjectDetector:
 
         self.state = "CHECK_RED_POSITION"
     
-    def is_red_circle_centered_bottom(self, red_circle, frame_shape):
-        center_red = red_circle[0]
-        frame_height, frame_width = frame_shape[:2]
-        
-        # 중앙 하단 위치 계산
-        expected_x = frame_width // 2
-        expected_y = int(frame_height * 0.75)  # 화면 하단 1/4 지점
-        
-        # 허용 오차 범위 내에 있는지 확인
-        if abs(center_red[0] - expected_x) < self.center_tolerance and abs(center_red[1] - expected_y) < self.center_tolerance:
-            return True, "Red circle is centered at the bottom."
-        else:
-            return False, "Red circle is not centered."
-    
-    def draw_guidelines(self, frame, yellow_circle):
-        height, width, _ = frame.shape
-        center_x = width // 2
-
-        # 화면 중앙에 회색 가상선
-        cv2.line(frame, (center_x, 0), (center_x, height), (192, 192, 192), 2)
-
-        if yellow_circle:
-            center_yellow = yellow_circle[0]
-            # 노란색 공의 중심에서 회색 선까지 수평 핑크색 선 그리기
-            cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, center_yellow[1]), (255, 105, 180), 2)
-
-            # 노란색 공의 중심에서 회색 선의 가장 끝지점까지 선 그리기
-            cv2.line(frame, (center_yellow[0], center_yellow[1]), (center_x, height), (255, 255, 0), 2)
-            
-            # 각도 계산 (노란 원 중심과 회색 가상선이 만나는 지점까지의 빨간색 각도)
-            dy = center_yellow[1] - height  # y 좌표 차이
-            dx = center_yellow[0] - center_x  # x 좌표 차이
-
-            angle = 180 - np.degrees(np.arctan2(dx, dy))  # 각도를 degree로 변환
-
-            # 각도를 화면에 표시
-            cv2.putText(frame, f"Angle: {angle:.2f} degrees", (center_yellow[0] + 10, center_yellow[1] + 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 105, 180), 2)
-
     def process_frame(self, frame):
         result = frame.copy()
         if self.state == "FIND_CIRCLES":
             result, red_circle, yellow_circle = self.find_circles(frame)
-            if red_circle and yellow_circle:
+            if red_circle:  # yellow_circle 없어도 처리
                 self.state = "CHECK_ALIGNMENT"
             return result
         
@@ -213,7 +170,6 @@ class ObjectDetector:
                 if distance is not None:
                     # walk_dist 계산
                     walk_dist = self.calculate_walk_distance(distance)
-                    print(walk_dist)
                     
                     # 거리를 화면에 표시
                     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -232,14 +188,16 @@ class ObjectDetector:
             return result
         
         elif self.state == "THRES_DIST":
+            result, red_circle, _ = self.find_circles(frame)
             # 여기에서 추정한 거리(walk_dist)가 특정 임계이상인지 확인하고, 그 다음에 모션제어로 이동
             if red_circle:
                 distance = self.calculate_distance(red_circle[1])
                 if distance is not None:
                     # walk_dist 계산
                     walk_dist = self.calculate_walk_distance(distance)
-                    if (walk_dist > 1.5):
+                    if (walk_dist > 0.5):
                         self.state = "GO_3STEP"
+                    
                     else:
                         self.state = "FAR_BALL_MOTION"
                     return result
@@ -257,11 +215,11 @@ class ObjectDetector:
             if self.last_movement_time is not None and time.time() - self.last_movement_time > 2:
                 self.state = "FIND_CIRCLES"
             return result
-        
+            
         elif self.state == "FAR_BALL_MOTION":
             self.far_ball_motion()
             return result
-    
+        
         elif self.state == "CHECK_RED_POSITION":
             result, red_circle, _ = self.find_circles(frame)
             if red_circle:
@@ -288,7 +246,8 @@ class ObjectDetector:
         
         elif self.state == "DRAW_LINES":
             result, _, yellow_circle = self.find_circles(frame)
-            self.draw_guidelines(result, yellow_circle)
+            if yellow_circle:  # 노란 원이 있을 때만 가이드라인 그림
+                self.draw_guidelines(result, yellow_circle)
             return result
 
 # 동영상 파일 처리
@@ -304,9 +263,10 @@ detector = ObjectDetector(
     center_tolerance=50  # 중앙 하단 확인을 위한 허용 오차
 )
 
-#cap = cv2.VideoCapture('./alignment_case1.mov')
-cap = cv2.VideoCapture('./re_alignment_case1.mp4')
-#cap = cv2.VideoCapture('./dist_test.mp4')
+cap = cv2.VideoCapture(0)
+cap.set(3, 640)
+cap.set(4, 480)
+cap.set(5, 15)
 
 while cap.isOpened():
     ret, frame = cap.read()

@@ -105,7 +105,7 @@ detector = ObjectDetector(
     center_tolerance=50  # 중앙 하단 확인을 위한 허용 오차
 )
 
-cap = cv2.VideoCapture('./dist_test.mp4')
+cap = cv2.VideoCapture(0)
 
 while cap.isOpened():
     ret, frame = cap.read()
