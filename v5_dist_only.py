@@ -2,6 +2,8 @@
 ## 테스트 했던 각도(목 각도 여러개 함)_distance(mm) :: 500 // 700 // 900 //1080
 ## distance로 구하고자 했던 walk_dist(자로 쟀을 땐) :: 350 // 600 // 800 // 1000 
 
+## focal length :: 3.04mm
+
 import cv2
 import numpy as np
 
