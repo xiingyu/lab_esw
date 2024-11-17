@@ -19,6 +19,7 @@ class ObjectDetector:
         self.upper_yellow = upper_yellow
 
         self.state = "FIND_CIRCLES"
+
         
         self.tolerance = tolerance  # x 좌표 차이 허용 오차 (픽셀 단위)
         self.focal_length = focal_length  # 카메라의 초점 거리 (픽셀 단위)

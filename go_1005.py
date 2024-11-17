@@ -228,8 +228,8 @@ class ObjectDetector:
                 if distance is not None:
                     # walk_dist 계산
                     walk_dist = self.calculate_walk_distance(distance)
-                    print(distance)
-                    if (walk_dist > 0.3):
+                    print(walk_dist)
+                    if (walk_dist > 0.2):
                         self.state = "GO_3STEP"
                     else:
                         #self.state = "FAR_BALL_MOTION"
@@ -274,8 +274,6 @@ class ObjectDetector:
                 text_y = int((height + text_size[1]) / 2)
                 cv2.putText(result, message, (text_x, text_y), font, font_scale, color, thickness)
 
-
-        
 # 동영상 파일 처리
 detector = ObjectDetector(
     lower_red=np.array([170, 90, 140]),
@@ -287,7 +285,6 @@ detector = ObjectDetector(
     tolerance=30,  # x 좌표 차이 허용 오차
     focal_length=765.6,  # 초점 거리--> focal_length_pixels= (sensor_width_mm * sensor_width_pixels) / focal_length_mm
     center_tolerance=50  # 중앙 하단 확인을 위한 허용 오차
-
 )
 
 cap = cv2.VideoCapture(0)
