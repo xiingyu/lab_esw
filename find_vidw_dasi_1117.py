@@ -42,6 +42,7 @@ class MainAlgo() :
             ## 1 2 3 4 5
             ##   6 7 8
         self.high_view_flag = False ## 90도로 봤을때 없었으면 True
+        self.head_h_cnt = 0
         self.main_state = "find_ball"
         self.ready_to_putt = 0 ## 0, 1
         ##########################
@@ -197,8 +198,9 @@ class MainAlgo() :
             self.head_h_align -= 10
             self.serial_comm.send_data(self.head_h_align)
             self.delay(0.8)
-            self.serial_comm.send_data(4)  # 왼쪽 턴 10도
-            self.delay(0.8)
+            self.head_h_cnt += 1 # 왼쪽으로 움직인 횟수 증가
+            #self.serial_comm.send_data(4)  # 왼쪽 턴 10도
+            #self.delay(0.8)
 
         elif position == "Right":
             if self.position_started != "Right":
@@ -209,8 +211,7 @@ class MainAlgo() :
             self.head_h_align += 10
             self.serial_comm.send_data(self.head_h_align)
             self.delay(0.8)
-            self.serial_comm.send_data(6)  # 오른쪽 턴 10도
-            self.delay(0.8)
+            self.head_h_cnt -= 1  # 오른쪽으로 움직인 횟수 감소
 
         elif position == "Center":
             print("Ball detected at Center. Holding position.")
@@ -221,11 +222,19 @@ class MainAlgo() :
             self.head_h_align = 11100
             self.delay(0.8)
 
-            # 몸체 회전 후 다시 확인
-            print("Rotating body to align with ball...")
-            #self.serial_comm.send_data(20)
-            #self.delay(1)
+            # 고개를 돌린 횟수만큼 몸체를 반대 방향으로 회전
+            print(f"Rotating body to realign with head adjustments: {abs(self.head_h_cnt)} steps.")
+            for _ in range(abs(self.head_h_cnt)):
+                if self.position_started == "Left":
+                    self.serial_comm.send_data(4)  # 왼쪽 턴
+                elif self.position_started == "Right":
+                    self.serial_comm.send_data(6)  # 오른쪽 턴
+                self.delay(0.8)
 
+            self.head_h_cnt = 0 # 머리 조정 횟수 초기화
+            self.position_started = None  # 방향 정보 초기화
+            
+            print("Rechecking ball position after body alignment...")
             # 정면 상태에서 다시 Center 여부 확인
             new_position = self.check_position()
             if new_position == "Center":
