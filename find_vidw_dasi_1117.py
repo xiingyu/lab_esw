@@ -162,7 +162,7 @@ class MainAlgo() :
                         self.red_ball_detection = False
                         self.red_filterd = np.zeros_like(self.img)
                         self.red_circle = ((0, 0),0)
-                        print(f"ball state talker : {self.red_circle}")
+                        #print(f"ball state talker : {self.red_circle}")
                 else :
                     self.red_filterd = np.zeros_like(self.img)
             else : 
@@ -172,10 +172,10 @@ class MainAlgo() :
     def check_position(self):
         """ 빨간 공이 화면의 좌/우/중앙 어디에 있는지 확인 """
 		# 공의 x좌표 기준으로 판단(왼쪽 30%에 있는지)
-        if self.red_circle[0][0] < int(self.img_size_x * 0.3) : 
+        if self.red_circle[0][0] < int(self.img_size_x * 0.2) : 
             return "Left"
             # 공의 x좌표 기준으로 판단(오른쪽 30%에 있는지)
-        elif self.red_circle[0][0] > int(self.img_size_x * 0.7) :
+        elif self.red_circle[0][0] > int(self.img_size_x * 0.8) :
             return "Right"
         else :
             return "Center"
@@ -184,6 +184,7 @@ class MainAlgo() :
         """ 공의 위치를 조정하기 위한 프로세스 """
         if not self.red_ball_detection:
             print("No ball detected in current direction")
+            #self.position_reached = False  # 탐지 실패 시 초기화
             self.main_state = "find_ball"  # 공을 찾도록 상태 변경
             return  # 탐지되지 않은 경우 바로 반환
 
@@ -198,9 +199,8 @@ class MainAlgo() :
             self.head_h_align -= 10
             self.serial_comm.send_data(self.head_h_align)
             self.delay(0.8)
+            print(self.red_ball_detection)
             self.head_h_cnt += 1 # 왼쪽으로 움직인 횟수 증가
-            #self.serial_comm.send_data(4)  # 왼쪽 턴 10도
-            #self.delay(0.8)
 
         elif position == "Right":
             if self.position_started != "Right":
@@ -211,41 +211,32 @@ class MainAlgo() :
             self.head_h_align += 10
             self.serial_comm.send_data(self.head_h_align)
             self.delay(0.8)
-            self.head_h_cnt -= 1  # 오른쪽으로 움직인 횟수 감소
+            print(self.red_ball_detection)
+            self.head_h_cnt += 1  # 오른쪽으로 움직인 횟수 증가
 
         elif position == "Center":
             print("Ball detected at Center. Holding position.")
             self.position_reached = True
 
-            # 고개를 정면으로 돌리기
-            self.serial_comm.send_data(11100)
-            self.head_h_align = 11100
-            self.delay(0.8)
-
-            # 고개를 돌린 횟수만큼 몸체를 반대 방향으로 회전
-            print(f"Rotating body to realign with head adjustments: {abs(self.head_h_cnt)} steps.")
-            for _ in range(abs(self.head_h_cnt)):
-                if self.position_started == "Left":
-                    self.serial_comm.send_data(4)  # 왼쪽 턴
-                elif self.position_started == "Right":
-                    self.serial_comm.send_data(6)  # 오른쪽 턴
-                self.delay(0.8)
-
-            self.head_h_cnt = 0 # 머리 조정 횟수 초기화
-            self.position_started = None  # 방향 정보 초기화
             
-            print("Rechecking ball position after body alignment...")
-            # 정면 상태에서 다시 Center 여부 확인
-            new_position = self.check_position()
-            if new_position == "Center":
-                print("Ball is still Center after body rotation.")
-                self.main_state = "goto_ball"  # 공으로 이동 상태로 전환
-                return  # goto_ball로 전환 후 함수 종료
-            else:
-                print(f"Ball is no longer Center (new position: {new_position}). Re-adjusting.")
-                self.position_reached = False
-                self.main_state = "adjust_position"  # 위치 조정 상태로 복귀
-                return  # adjust_position으로 전환 후 함수 종료
+        # 고개를 정면으로 돌리기
+        self.serial_comm.send_data(11100)
+        self.head_h_align = 11100
+        self.delay(0.8)
+        
+        # 고개를 돌린 횟수만큼 몸체를 반대 방향으로 회전
+        print(f"Rotating body to realign with head adjustments: {abs(self.head_h_cnt)} steps.")
+        for _ in range(abs(self.head_h_cnt)):
+            if self.position_started == "Left":
+                self.serial_comm.send_data(4)  # 왼쪽 턴
+            elif self.position_started == "Right":
+                self.serial_comm.send_data(6)  # 오른쪽 턴
+            self.delay(0.8)
+                
+        self.head_h_cnt = 0 # 머리 조정 횟수 초기화
+        self.position_started = None  # 방향 정보 초기화
+
+        self.main_state = "adjust_position"  # 위치 조정 상태로 복귀
 
  ######################################################################
 
@@ -270,7 +261,7 @@ class MainAlgo() :
                 
     def finite_statemachine(self) :
         if self.main_state == "find_ball" :
-            
+            self.position_reached = False  # 초기화            
             if self.high_view_flag == False :
                 ##view foward
                 self.delay(0.1)
@@ -295,7 +286,7 @@ class MainAlgo() :
                 self.serial_comm.send_data(1110)
                 self.head_h_align = 1110
                 self.delay(2)
-                if self.red_ball_detection == True :
+                if self.red_ball_detection :
                     self.check_position()
                     print(f"Detected ball position: {self.head_h_align}")
                     self.process_frame()
@@ -326,15 +317,17 @@ class MainAlgo() :
                 self.delay(0.8)
                 self.serial_comm.send_data(40) # 골프채 내리기
                 self.delay(2)
-                self.serial_comm.send_data(41) # 골프채 올리기
-                self.head_h_align = 11180
-                self.delay(2)
-
+                print(f"골프채내리고 공 확인하는지: {self.red_ball_detection}")
+                
                 if self.red_ball_detection == True :
                     self.check_position()
                     print(f"Detected ball position: {self.head_h_align}")
                     self.process_frame()
                     return  # 공 탐지 후 실행 종료
+                self.delay(5)
+                self.serial_comm.send_data(41) # 골프채 올리기
+                self.head_h_align = 11180
+                self.delay(2)
 
                 self.high_view_flag = True
 
@@ -373,10 +366,28 @@ class MainAlgo() :
                 
         elif self.main_state == "adjust_position":
             self.process_frame()  # 공 위치 조정 수행
-            if self.position_reached == True : # Center로 맞췄는데 몸을 회전시킨 후에도 맞는지 확인해야함
-                self.serial_comm.send_data(11100)
-                self.rotate = self.head_h_align
-                self.delay(0.8)
+
+            print("Rechecking ball position after body alignment...")
+
+            # 공이 여전히 탐지되었는지 확인
+            if not self.red_ball_detection:
+                print("Ball lost during adjustment. Switching to find_ball state.")
+                self.main_state = "find_ball"
+                self.position_reached = False  # 초기화
+                return
+                
+            
+            # 정면 상태에서 다시 Center 여부 확인
+            new_position = self.check_position()
+            if new_position == "Center":
+                print("Ball is still Center after body rotation.")
+                self.main_state = "goto_ball"  # 공으로 이동 상태로 전환
+                return  # goto_ball로 전환 후 함수 종료
+            else:
+                print(f"Ball is no longer Center (new position: {new_position}). Re-adjusting.")
+                self.position_reached = False
+                self.main_state = "adjust_position"  # 위치 조정 상태로 복귀
+                return  # adjust_position으로 전환 후 함수 종료
 
         elif self.main_state == "goto_ball" :
             if self.red_circle[0][1] < int(self.img_size_y * 0.8) :
